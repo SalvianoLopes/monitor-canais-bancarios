@@ -687,6 +687,20 @@ const sbGet=(t,p='')=>{
 };
 const sbPost=(t,b)=>fetch(`${SB_URL}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(b)}).then(r=>r.json());
 
+/* Fetch com timeout — evita que salvarDia() trave pra sempre se o PostgREST do Supabase
+   matar a conexão no meio (visto em 09/11/2026: "Thread killed by timeout manager", sem
+   resposta HTTP nenhuma, deixando o await pendurado indefinidamente). */
+function fetchComTimeout(url,opts={},ms=20000){
+  const c=new AbortController();
+  const tm=setTimeout(()=>c.abort(),ms);
+  return fetch(url,{...opts,signal:c.signal})
+    .catch(e=>{
+      if(e.name==='AbortError')throw new Error(`Tempo esgotado (${ms/1000}s) ao conectar com o Supabase — tente salvar de novo`);
+      throw e;
+    })
+    .finally(()=>clearTimeout(tm));
+}
+
 /* ══ FERIADOS NACIONAIS 2026 ══ */
 const FERIADOS=new Set(['2026-04-03','2026-04-21','2026-05-01','2026-06-04','2026-09-07','2026-10-12','2026-11-02','2026-11-15','2026-12-25']);
 
@@ -1930,7 +1944,7 @@ async function salvarDia(){
         if(upd.status&&upd.status!=='—')body.status=upd.status;
         if(upd.demanda&&upd.demanda!=='—')body.demanda=upd.demanda;
         if(upd.prazo)body.prazo=upd.prazo;
-        await fetch(`${SB_URL}/rest/v1/canais_criticos_demandas?canal=eq.${canal}&numero=eq.${encodeURIComponent(upd.numero)}`,{
+        await fetchComTimeout(`${SB_URL}/rest/v1/canais_criticos_demandas?canal=eq.${canal}&numero=eq.${encodeURIComponent(upd.numero)}`,{
           method:'PATCH',
           headers:{...H,'Prefer':'return=minimal'},
           body:JSON.stringify(body)
@@ -1961,7 +1975,7 @@ async function salvarDia(){
 
       // ── INSERT: apenas registros novos ──
       for(const [dataRef,rowsData] of Object.entries(porData)){
-        const upResp = await fetch(`${SB_URL}/rest/v1/canais_criticos_uploads`,{
+        const upResp = await fetchComTimeout(`${SB_URL}/rest/v1/canais_criticos_uploads`,{
           method:'POST',
           headers:{...H,'Prefer':'return=representation'},
           body:JSON.stringify({canal,data_ref:dataRef,arquivo:stLocal[canal].fileName||'',total:rowsData.length,usuario:getSessao()?.nome||null})
@@ -2004,7 +2018,7 @@ async function salvarDia(){
               dados_raw:   dr,
             };
           });
-          const resp = await fetch(`${SB_URL}/rest/v1/canais_criticos_demandas`,{
+          const resp = await fetchComTimeout(`${SB_URL}/rest/v1/canais_criticos_demandas`,{
             method:'POST',
             headers:{...H,'Prefer':'return=minimal'},
             body:JSON.stringify(lote)
