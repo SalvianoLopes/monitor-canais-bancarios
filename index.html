@@ -1595,10 +1595,14 @@ async function confirmarExclusao() {
     // Exclusão de um dia específico é SEMPRE restrita por data_ref — nunca apaga o canal inteiro sem o usuário pedir explicitamente
     const filtroData = todos ? '' : `&data_ref=eq.${ds}`;
 
-    await fetch(`${SB_URL}/rest/v1/canais_criticos_demandas?canal=eq.${canal}${filtroData}`,
+    // fetch não lança erro em resposta não-2xx: checar r.ok antes de declarar sucesso
+    // e só apagar os uploads se as demandas foram apagadas de fato
+    const rDem = await fetch(`${SB_URL}/rest/v1/canais_criticos_demandas?canal=eq.${canal}${filtroData}`,
       { method:'DELETE', headers:H });
-    await fetch(`${SB_URL}/rest/v1/canais_criticos_uploads?canal=eq.${canal}${filtroData}`,
+    if(!rDem.ok) throw new Error('DELETE demandas '+rDem.status+': '+(await rDem.text()).slice(0,100));
+    const rUp = await fetch(`${SB_URL}/rest/v1/canais_criticos_uploads?canal=eq.${canal}${filtroData}`,
       { method:'DELETE', headers:H });
+    if(!rUp.ok) throw new Error('DELETE uploads '+rUp.status+': '+(await rUp.text()).slice(0,100));
 
     toast('✅ Registros de '+NOMES_CANAL[canal]+' excluídos.','ok');
     await carregarDados();
@@ -1904,7 +1908,7 @@ async function salvarDia(){
       const existentesNo=new Set();
       let off2=0;
       while(true){
-        const pg=await sbGet(`canais_criticos_demandas?select=numero&canal=eq.${canal}&limit=1000&offset=${off2}`);
+        const pg=await sbGet(`canais_criticos_demandas?select=numero&canal=eq.${canal}&order=id.asc&limit=1000&offset=${off2}`);
         if(!pg.length)break;
         pg.forEach(r=>existentesNo.add(String(r.numero)));
         if(pg.length<1000)break;
