@@ -1944,7 +1944,9 @@ async function salvarDia(){
 
       // ── PATCH: atualizar status/demanda/prazo dos já existentes, só os campos que vieram preenchidos ──
       for(const upd of aAtualizar){
-        const body={inserted_date:insertedDate};
+        // NÃO gravar inserted_date no PATCH: ele marca quando o registro ENTROU. Sobrescrever aqui fez
+        // 4.769 registros antigos ficarem com a data do upload e sumirem numa limpeza por inserted_date (09/11/2026).
+        const body={};
         if(upd.status&&upd.status!=='—')body.status=upd.status;
         if(upd.demanda&&upd.demanda!=='—')body.demanda=upd.demanda;
         if(upd.prazo)body.prazo=upd.prazo;
