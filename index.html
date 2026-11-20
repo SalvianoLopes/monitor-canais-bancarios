@@ -503,7 +503,7 @@ tr:hover td{background:#fafaf8}
       </div>
       <div class="slots-row">
         <div class="slot-mini rdr" id="slot-rdr">
-          <input type="file" id="inp-rdr" accept=".xlsx,.xlsb,.xls" onchange="carregarArquivo('rdr',this.files[0])">
+          <input type="file" id="inp-rdr" accept=".xlsx,.xlsb,.xls,.csv" onchange="carregarArquivo('rdr',this.files[0])">
           <div class="sm-ico">🏦</div>
           <div class="sm-info">
             <div class="sm-name">RDR — BACEN</div>
@@ -513,7 +513,7 @@ tr:hover td{background:#fafaf8}
           <button class="btn-rm" id="rm-rdr" title="Remover arquivo" onclick="removerArquivo('rdr')" disabled>✕</button>
         </div>
         <div class="slot-mini consumidor" id="slot-cons">
-          <input type="file" id="inp-cons" accept=".xlsx,.xlsb,.xls" onchange="carregarArquivo('consumidor',this.files[0])">
+          <input type="file" id="inp-cons" accept=".xlsx,.xlsb,.xls,.csv" onchange="carregarArquivo('consumidor',this.files[0])">
           <div class="sm-ico">💬</div>
           <div class="sm-info">
             <div class="sm-name">Consumidor.gov.br</div>
@@ -523,7 +523,7 @@ tr:hover td{background:#fafaf8}
           <button class="btn-rm" id="rm-cons" title="Remover arquivo" onclick="removerArquivo('consumidor')" disabled>✕</button>
         </div>
         <div class="slot-mini procon" id="slot-proc">
-          <input type="file" id="inp-proc" accept=".xlsx,.xlsb,.xls" onchange="carregarArquivo('procon',this.files[0])">
+          <input type="file" id="inp-proc" accept=".xlsx,.xlsb,.xls,.csv" onchange="carregarArquivo('procon',this.files[0])">
           <div class="sm-ico">⚖️</div>
           <div class="sm-info">
             <div class="sm-name">PROCON</div>
@@ -1348,7 +1348,13 @@ function carregarArquivo(canal,file){
     const data=new Uint8Array(e.target.result);
     // Exports HTML da MOL (extensão .xls): raw:true evita que o parser converta datas dd/mm como mm/dd (americano)
     const isHtml=String.fromCharCode.apply(null,Array.from(data.slice(0,64))).trimStart().charAt(0)==='<';
-    const wb=isHtml?XLSX.read(data,{type:'array',raw:true}):XLSX.read(data,{type:'array',cellDates:true});
+    // CSV: le como texto UTF-8 (cai para Windows-1252) e com raw:true para nao inverter dd/mm
+    let wb;
+    if(/\.csv$/i.test(file.name)){
+      let txt=new TextDecoder('utf-8').decode(data);
+      if(txt.indexOf('�')>=0)txt=new TextDecoder('windows-1252').decode(data);
+      wb=XLSX.read(txt.replace(/^﻿/,''),{type:'string',raw:true});
+    } else wb=isHtml?XLSX.read(data,{type:'array',raw:true}):XLSX.read(data,{type:'array',cellDates:true});
     let sh=null;
     // Selecionar aba correta por canal
     // Padrão definitivo: BACEN_RDR → aba BACEN_RDR | Consumidor → aba Table | PROCON → aba PROCON
