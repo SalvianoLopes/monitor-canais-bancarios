@@ -23,6 +23,17 @@
 - **Segurança:** este arquivo é de repositório público — não colocar chaves, nomes nem CPFs. CPFs só nos backups locais do PC.
 - **Testes:** projeto sem `package.json`; feito `node --check` nos scripts inline e verificação visual local (modo demo). Confirmação em produção por `curl` + conferência do usuário no navegador.
 
+## Atualização 20/11/2026 (noite) — Consumidor, PROCON e upload de CSV
+- **Produção:** `main` em `c1f7b8b` (PRs #6 a #9), deployada via `deploy.sh`. Tudo abaixo já está no ar.
+- **Consumidor — mesma regra do RDR:** tipo = **Motivo** da "Classificação IA"; se o Motivo for "Margem", usa o **Submotivo** (`extrairClassificacaoRdr`, usada no upload do Consumidor). Sem IA → Tags (várias tags viram um tipo combinado; é assim mesmo). O upload também lê a coluna **"Data de Abertura"** (A maiúsculo) da planilha nova da MOL.
+- **Consumidor — dados (NÃO reaplicar):** carga das planilhas de 01/01 a 20/11 feita direto no banco: 790 `demanda` atualizadas por `numero` (772 pela regra + 18 vazias/"nan" preenchidas com Tag) e 127 protocolos inseridos (ids 38901–39027; uploads 2317–2324, arquivo "MOLReport (carga manual 20-11-2026).csv", usuário "Carga manual"). Registros sem IA (antes de ago/2026) mantêm o tipo que já tinham. Sobraram 3 sem tipo (vieram sem IA e sem Tag).
+- **Gráficos (RDR, Consumidor e PROCON):** "Demandas por tipo" com % por tipo, vazias/"—"/"nan" fora do ranking ("N sem classificação") e grafias iguais agrupadas (`rdrTipos`); "Demandas recebidas por dia no mês" (barras por dia, dia selecionado em destaque). No Consumidor o painel de status e a rosca "Tipo produto" continuam.
+- **PROCON:** o `status` vem como lista de bancos ("Banco X - Aguardando Resposta - Carta; Banco Inbursa - ..."). `procStatus` pega o trecho do Inbursa (ou o primeiro), tira o nome do banco e padroniza; `procTipo` usa o 1º item da lista (sem `;` final e sem "Humano - ..."), "-" = sem classificação. Cards com `min-width:0` para não estourar a grade. A maioria dos registros do PROCON vem sem tipo da MOL (é da origem, não do app).
+- **Upload aceita CSV** (`.csv` além de xlsx/xlsb/xls): lido como texto UTF-8 (cai para Windows-1252) com `raw:true`, para não inverter dd/mm. Reenviar dias já gravados não duplica (atualiza por `numero`, índice UNIQUE `(canal, numero)`).
+- **Teste feito em produção (19/11):** apagados os registros de 19/11 de RDR (7) e Consumidor (15) com backup, e reenviados por CSV pelo app: voltaram 7 e 15, sem duplicados e com tipos pela regra.
+- **Pendências:** (1) **trocar a service key do Supabase (planejado para 21/11/2026)** e atualizar a variável `SUPABASE_BACKUP_KEY` do backup diário; (2) conferir lacunas do PROCON (o usuário subiu os dias desde 14/11 pelo app em 20/11); (3) 10 protocolos RDR sem tipo (a MOL nunca classificou).
+- **Mais de uma máquina:** o repositório é a fonte da verdade — sempre `git pull` antes de mexer. Deploy só com o clone ligado ao projeto Vercel certo e com OK explícito do usuário.
+
 ## Identificação
 - **App real:** https://canais-criticos.vercel.app
 - **Demo:** https://canais-criticos-inbursa.netlify.app
