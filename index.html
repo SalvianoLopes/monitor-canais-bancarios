@@ -1779,7 +1779,7 @@ function normalizar(canal, rows){
   ────────────────────────────────────────────────────────── */
   if(canal==='consumidor') return rows.map(r=>{
     const classiaRaw=String(r['Classificação IA']||'');
-    const classiaFinal=classiaRaw?extrairClassificacao(parseClassificacaoIA(classiaRaw)):'';
+    const classiaFinal=classiaRaw?extrairClassificacaoRdr(parseClassificacaoIA(classiaRaw)):'';
     let demanda;
     if(classiaFinal){
       demanda=classiaFinal;
@@ -1792,7 +1792,7 @@ function normalizar(canal, rows){
       demandante:  String(r['Reclamante']||r['Nome do Consumidor']||'').trim(),
       cpf:         String(r['CPF']||r['CPF do Consumidor']||'').trim(),
       abertura:    toBR(r['Data de Abertura']||r['Data de abertura']||r['Capturada em']||''),
-      prazo:       toBR(r['Data de abertura']||''),
+      prazo:       toBR(r['Data de abertura']||r['Data de Abertura']||''),
       demanda:     demanda,
       status:      String(r['Situação']||''),
       safra:       '',
@@ -1805,7 +1805,7 @@ function normalizar(canal, rows){
         'Protocolo':             String(r['Protocolo']||''),
         'Reclamante':            String(r['Reclamante']||r['Nome do Consumidor']||'').trim(),
         'CPF':                   String(r['CPF']||r['CPF do Consumidor']||'').trim(),
-        'Data de abertura':      toBR(r['Data de abertura']||''),
+        'Data de abertura':      toBR(r['Data de abertura']||r['Data de Abertura']||''),
         'Capturada em':          toBR(r['Capturada em']||''),
         'Situação':              String(r['Situação']||''),
         'Nome fantasia':         String(r['Nome fantasia']||''),
