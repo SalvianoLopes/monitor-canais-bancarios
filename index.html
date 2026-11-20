@@ -777,6 +777,17 @@ function extrairClassificacao(parsed){
   return '';
 }
 
+// RDR: o tipo da demanda e o MOTIVO. Excecao: quando o motivo e "Margem" (muito
+// abrangente), usa o SUBMOTIVO (ex.: Margem -> Liberacao de margem).
+function extrairClassificacaoRdr(parsed){
+  const lim=v=>String(v||'').replace(/[;\s]+$/,'').trim();
+  const ok=v=>lim(v)&&lim(v)!=='-';
+  const mot=ok(parsed.motivo)?lim(parsed.motivo):'';
+  const sub=ok(parsed.submotivo)?lim(parsed.submotivo):'';
+  if(mot.toLowerCase()==='margem') return sub||mot;
+  return mot||sub;
+}
+
 /* ══ INIT ══ */
 window.addEventListener('DOMContentLoaded',async()=>{
   if(_REAL){
@@ -1704,7 +1715,7 @@ function normalizar(canal, rows){
   ────────────────────────────────────────────────────────── */
   if(canal==='rdr') return rows.map(r=>{
     const classiaRaw=String(r['Classificação IA']||'');
-    const classiaFinal=classiaRaw?extrairClassificacao(parseClassificacaoIA(classiaRaw)):'';
+    const classiaFinal=classiaRaw?extrairClassificacaoRdr(parseClassificacaoIA(classiaRaw)):'';
     const demandaFinal=classiaFinal||String(r['Demanda']||'');
     return{
       numero:      String(r['Número']||r['Numero']||'').trim(),
