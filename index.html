@@ -1254,7 +1254,7 @@ function buildCanalPanel(canal,rows,today,in3){
       ${isRdr?'':`<div class="card"><div class="card-t">Status das entradas</div>${stH}</div>`}
     </div>
     <div class="cg3"${isRdr?' style="grid-template-columns:1fr"':''}>
-      <div class="card"><div class="card-t">Recebimentos por data</div><div style="position:relative;height:120px"><canvas id="ch-dat-${canal}"></canvas></div></div>
+      <div class="card"><div class="card-t">${isRdr?'Demandas recebidas por dia no mês <span style="font-weight:400;color:var(--ink3)">· dia selecionado em destaque</span>':'Recebimentos por data'}</div><div style="position:relative;height:${isRdr?160:120}px"><canvas id="ch-dat-${canal}"></canvas></div></div>
       ${isRdr?'':`<div class="card"><div class="card-t">Tipo produto</div><div style="position:relative;height:120px"><canvas id="ch-st-${canal}"></canvas></div></div>`}
     </div>
     <div class="card"><div class="card-t">${c.nome} · ${rows.length} registros</div>${tableH}</div>
@@ -1284,10 +1284,22 @@ function drawCanalCharts(canal,rows){
     {indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9},stepSize:1}},y:{grid:{display:false},ticks:{font:{size:9}}}}});
   }
 
+  // RDR: barras por dia do mes (volume), dia selecionado em destaque
+  if(canal==='rdr'&&diaSel){
+    const [yy,mm]=diaSel.split('-').map(Number),nd=new Date(yy,mm,0).getDate();
+    const dias=[],vals=[],cores=[];
+    for(let d=1;d<=nd;d++){
+      const k=`${yy}-${String(mm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      dias.push(String(d));vals.push(((dadosPorDia[k]||{}).rdr||[]).length);cores.push(k===diaSel?cor:cor+'55');
+    }
+    drawChart('ch-dat-rdr','bar',{labels:dias,datasets:[{data:vals,backgroundColor:cores,borderRadius:3}]},
+      {plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>`Dia ${i[0].label}/${String(mm).padStart(2,'0')}`,label:c=>`${c.raw} demanda(s)`}}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},precision:0}}}});
+  } else {
   // Linha — datas
   const lblDt=Object.keys(dtC).sort((a,b)=>{const[da,ma]=a.split('/').map(Number),[db,mb]=b.split('/').map(Number);return ma-mb||da-db;});
   drawChart('ch-dat-'+canal,'line',{labels:lblDt,datasets:[{data:lblDt.map(l=>dtC[l]),borderColor:cor,backgroundColor:cor+'1a',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:cor}]},
     {plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:8},maxRotation:45}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},stepSize:1}}}});
+  }
 
   // Donut — tipo produto (RDR nao usa: status nao vem da planilha)
   const lblS=Object.keys(stC);
