@@ -1156,9 +1156,17 @@ function buildScoreConsumidor(){
 
 // RDR: ranking de tipos (demanda vazia ou '—' = sem classificacao, fora do ranking)
 function rdrTipos(rows){
-  const m={};let sem=0;
-  rows.forEach(r=>{const d=(r.demanda||'').trim();if(!d||d==='—')sem++;else m[d]=(m[d]||0)+1;});
-  const lista=Object.entries(m).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pt-BR'));
+  // agrupa sem diferenciar maiusculas/espacos; mostra a grafia mais usada
+  const g={};let sem=0;
+  rows.forEach(r=>{
+    const d=(r.demanda||'').replace(/\s+/g,' ').trim();
+    if(!d||d==='—'){sem++;return;}
+    const k=d.toLowerCase();
+    const o=g[k]||(g[k]={n:0,f:{}});
+    o.n++;o.f[d]=(o.f[d]||0)+1;
+  });
+  const lista=Object.values(g).map(o=>[Object.entries(o.f).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pt-BR'))[0][0],o.n])
+    .sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pt-BR'));
   return {lista,sem,total:lista.reduce((n,[,q])=>n+q,0)};
 }
 
