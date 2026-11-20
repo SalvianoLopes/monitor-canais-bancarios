@@ -175,6 +175,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);f
 /* chart grid */
 .cg2{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:10px}
 .cg3{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px}
+.cg2>.card,.cg3>.card{min-width:0}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px}
 .card-t{font-size:9px;font-weight:600;color:var(--ink3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
 
@@ -1154,12 +1155,29 @@ function buildScoreConsumidor(){
   </div>`;
 }
 
+// PROCON: o status vem como lista de bancos ("Banco X - Aguardando Resposta - Carta; Banco Inbursa - ...").
+// Pega o trecho do Inbursa (ou o primeiro), tira o nome do banco e padroniza.
+function procStatus(s){
+  const segs=String(s||'').split(';').map(x=>x.replace(/\s+/g,' ').trim()).filter(Boolean);
+  if(!segs.length||/^'?-$/.test(segs[0]))return 'Sem status';
+  let t=segs.find(x=>/inbursa/i.test(x))||segs[0];
+  const m=t.match(/^(.+?) - (.+)$/);
+  if(m&&!/^aguarda/i.test(m[1]))t=m[2].trim();
+  if(/^aguarda(ndo)? resposta do fornecedor/i.test(t))return 'Aguardando resposta do Fornecedor';
+  return t||'Sem status';
+}
+// PROCON: tipo = primeiro item da lista (sem o ";" final e sem a parte "Humano - ..."); "-" = sem classificacao
+function procTipo(d){
+  const p=String(d||'').split(';')[0].replace(/\s+/g,' ').trim();
+  return (!p||/^'?-$/.test(p))?'':p;
+}
+
 // RDR: ranking de tipos (demanda vazia ou '—' = sem classificacao, fora do ranking)
-function rdrTipos(rows){
+function rdrTipos(rows,f){
   // agrupa sem diferenciar maiusculas/espacos; mostra a grafia mais usada
   const g={};let sem=0;
   rows.forEach(r=>{
-    const d=(r.demanda||'').replace(/\s+/g,' ').trim();
+    const d=(f?f(r.demanda):(r.demanda||'')).replace(/\s+/g,' ').trim();
     if(!d||d==='—'||d.toLowerCase()==='nan'){sem++;return;}
     const k=d.toLowerCase();
     const o=g[k]||(g[k]={n:0,f:{}});
@@ -1192,7 +1210,7 @@ function buildCanalPanel(canal,rows,today,in3){
   const demC={},stC={};
   let enc=0;
   rows.forEach(r=>{
-    const dem=r.demanda||'—',st=r.status||'Sem status';
+    const dem=r.demanda||'—',st=canal==='procon'?procStatus(r.status):(r.status||'Sem status');
     demC[dem]=(demC[dem]||0)+1;
     stC[st]=(stC[st]||0)+1;
     if(isEncerrado(r))enc++;
@@ -1207,9 +1225,9 @@ function buildCanalPanel(canal,rows,today,in3){
 
   const isRdr=canal==='rdr';
   // RDR: so tipo de demanda; vazias ficam fora do ranking e dos percentuais
-  const usaRank=isRdr||canal==='consumidor';
+  const usaRank=isRdr||canal==='consumidor'||canal==='procon';
   const porDia=isRdr||canal==='consumidor'||canal==='procon';
-  const rdrT=usaRank?rdrTipos(rows):null;
+  const rdrT=usaRank?rdrTipos(rows,canal==='procon'?procTipo:null):null;
   const rdrTot=rdrT?rdrT.total:0,rdrSem=rdrT?rdrT.sem:0;
   const rdrTop=rdrT&&rdrT.lista.length?rdrT.lista[0]:null;
   const ch=Math.max(120,(usaRank?rdrT.lista.length:Object.keys(demC).length)*30+40);
@@ -1285,7 +1303,7 @@ function buildCanalPanel(canal,rows,today,in3){
 function drawCanalCharts(canal,rows){
   const demC={},stC={},dtC={};
   rows.forEach(r=>{
-    const dem=r.demanda||'—',st=r.status||'Sem status';
+    const dem=r.demanda||'—',st=canal==='procon'?procStatus(r.status):(r.status||'Sem status');
     demC[dem]=(demC[dem]||0)+1;
     stC[st]=(stC[st]||0)+1;
     const ab=pd(r.abertura);
@@ -1295,8 +1313,8 @@ function drawCanalCharts(canal,rows){
   const cor=cfg[canal];
 
   // Barras horizontal — demandas
-  if(canal==='rdr'||canal==='consumidor'){
-    const t=rdrTipos(rows);
+  if(canal==='rdr'||canal==='consumidor'||canal==='procon'){
+    const t=rdrTipos(rows,canal==='procon'?procTipo:null);
     if(t.total)drawChart('ch-dem-'+canal,'bar',{labels:t.lista.map(([n,q])=>`${n} · ${Math.round(100*q/t.total)}%`),datasets:[{data:t.lista.map(([n,q])=>q),backgroundColor:CORES,borderRadius:3}]},
       {indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} demanda(s) · ${(100*c.raw/t.total).toFixed(1)}%`}}},scales:{x:{grid:{display:false},ticks:{font:{size:9},stepSize:1}},y:{grid:{display:false},ticks:{font:{size:10}}}}});
   } else {
