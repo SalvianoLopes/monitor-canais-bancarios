@@ -1160,7 +1160,7 @@ function rdrTipos(rows){
   const g={};let sem=0;
   rows.forEach(r=>{
     const d=(r.demanda||'').replace(/\s+/g,' ').trim();
-    if(!d||d==='—'){sem++;return;}
+    if(!d||d==='—'||d.toLowerCase()==='nan'){sem++;return;}
     const k=d.toLowerCase();
     const o=g[k]||(g[k]={n:0,f:{}});
     o.n++;o.f[d]=(o.f[d]||0)+1;
@@ -1207,10 +1207,11 @@ function buildCanalPanel(canal,rows,today,in3){
 
   const isRdr=canal==='rdr';
   // RDR: so tipo de demanda; vazias ficam fora do ranking e dos percentuais
-  const rdrT=isRdr?rdrTipos(rows):null;
+  const usaRank=isRdr||canal==='consumidor';
+  const rdrT=usaRank?rdrTipos(rows):null;
   const rdrTot=rdrT?rdrT.total:0,rdrSem=rdrT?rdrT.sem:0;
   const rdrTop=rdrT&&rdrT.lista.length?rdrT.lista[0]:null;
-  const ch=Math.max(120,(isRdr?rdrT.lista.length:Object.keys(demC).length)*30+40);
+  const ch=Math.max(120,(usaRank?rdrT.lista.length:Object.keys(demC).length)*30+40);
   const isPro=canal==='procon';
 
   // ── Colunas exatas de cada planilha ──────────────────────
@@ -1269,7 +1270,7 @@ function buildCanalPanel(canal,rows,today,in3){
     </div>
     ${canal==='consumidor'?buildScoreConsumidor():''}
     <div class="cg2">
-      <div class="card"${isRdr?' style="grid-column:1/-1"':''}><div class="card-t">Demandas por tipo${isRdr?` <span style="font-weight:400;color:var(--ink3)">${rdrTot?`· % sobre ${rdrTot} classificadas`:''}${rdrSem?` · ${rdrSem} sem classificação (fora do ranking)`:''}</span>`:''}</div>${isRdr&&!rdrTot?'<p style="font-size:11px;color:var(--ink3);padding:14px 0">Nenhuma demanda classificada neste dia ainda.</p>':`<div style="position:relative;height:${ch}px"><canvas id="ch-dem-${canal}"></canvas></div>`}</div>
+      <div class="card"${isRdr?' style="grid-column:1/-1"':''}><div class="card-t">Demandas por tipo${usaRank?` <span style="font-weight:400;color:var(--ink3)">${rdrTot?`· % sobre ${rdrTot} classificadas`:''}${rdrSem?` · ${rdrSem} sem classificação (fora do ranking)`:''}</span>`:''}</div>${usaRank&&!rdrTot?'<p style="font-size:11px;color:var(--ink3);padding:14px 0">Nenhuma demanda classificada neste dia ainda.</p>':`<div style="position:relative;height:${ch}px"><canvas id="ch-dem-${canal}"></canvas></div>`}</div>
       ${isRdr?'':`<div class="card"><div class="card-t">Status das entradas</div>${stH}</div>`}
     </div>
     <div class="cg3"${isRdr?' style="grid-template-columns:1fr"':''}>
@@ -1293,9 +1294,9 @@ function drawCanalCharts(canal,rows){
   const cor=cfg[canal];
 
   // Barras horizontal — demandas
-  if(canal==='rdr'){
+  if(canal==='rdr'||canal==='consumidor'){
     const t=rdrTipos(rows);
-    drawChart('ch-dem-rdr','bar',{labels:t.lista.map(([n,q])=>`${n} · ${Math.round(100*q/t.total)}%`),datasets:[{data:t.lista.map(([n,q])=>q),backgroundColor:CORES,borderRadius:3}]},
+    if(t.total)drawChart('ch-dem-'+canal,'bar',{labels:t.lista.map(([n,q])=>`${n} · ${Math.round(100*q/t.total)}%`),datasets:[{data:t.lista.map(([n,q])=>q),backgroundColor:CORES,borderRadius:3}]},
       {indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} demanda(s) · ${(100*c.raw/t.total).toFixed(1)}%`}}},scales:{x:{grid:{display:false},ticks:{font:{size:9},stepSize:1}},y:{grid:{display:false},ticks:{font:{size:10}}}}});
   } else {
   const lblD=Object.keys(demC).sort((a,b)=>demC[b]-demC[a]);
