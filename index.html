@@ -170,6 +170,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--paper);color:var(--ink);f
 
 /* canal KPIs */
 .ckpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.kpi-wide{grid-column:span 3}
 
 /* chart grid */
 .cg2{display:grid;grid-template-columns:3fr 2fr;gap:10px;margin-bottom:10px}
@@ -364,6 +365,7 @@ tr:hover td{background:#fafaf8}
 
 @media(max-width:900px){
   .kpi-row,.ckpi-row{grid-template-columns:repeat(2,1fr)}
+  .kpi-wide{grid-column:span 1}
   .cg2,.cg3{grid-template-columns:1fr}
 }
 </style>
@@ -1141,6 +1143,14 @@ function buildScoreConsumidor(){
   </div>`;
 }
 
+// RDR: ranking de tipos (demanda vazia ou '—' = sem classificacao, fora do ranking)
+function rdrTipos(rows){
+  const m={};let sem=0;
+  rows.forEach(r=>{const d=(r.demanda||'').trim();if(!d||d==='—')sem++;else m[d]=(m[d]||0)+1;});
+  const lista=Object.entries(m).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0],'pt-BR'));
+  return {lista,sem,total:lista.reduce((n,[,q])=>n+q,0)};
+}
+
 function buildCanalPanel(canal,rows,today,in3){
   const cfg={rdr:{cor:'#1a56db',cls:'rdr',ico:'🏦',nome:'RDR — BACEN'},consumidor:{cor:'#0b7a5e',cls:'cons',ico:'💬',nome:'Consumidor.gov.br'},procon:{cor:'#7c3aed',cls:'proc',ico:'⚖️',nome:'PROCON'}};
   const c=cfg[canal];
@@ -1176,8 +1186,12 @@ function buildCanalPanel(canal,rows,today,in3){
       <span class="pl-data" style="color:var(--ink2);font-size:10px;font-weight:600">${qt}</span>
     </div>`).join('')||'<p style="font-size:10px;color:var(--ink3)">Sem dados de status</p>';
 
-  const ch=Math.max(120,Object.keys(demC).length*30+40);
   const isRdr=canal==='rdr';
+  // RDR: so tipo de demanda; vazias ficam fora do ranking e dos percentuais
+  const rdrT=isRdr?rdrTipos(rows):null;
+  const rdrTot=rdrT?rdrT.total:0,rdrSem=rdrT?rdrT.sem:0;
+  const rdrTop=rdrT&&rdrT.lista.length?rdrT.lista[0]:null;
+  const ch=Math.max(120,(isRdr?rdrT.lista.length:Object.keys(demC).length)*30+40);
   const isPro=canal==='procon';
 
   // ── Colunas exatas de cada planilha ──────────────────────
@@ -1231,17 +1245,17 @@ function buildCanalPanel(canal,rows,today,in3){
     </div>
     <div class="ckpi-row">
       <div class="kpi"><div class="kpi-lbl">Total</div><div class="kpi-val ${c.cls}">${rows.length}</div><div class="kpi-sub">no canal</div></div>
-      <div class="kpi"><div class="kpi-lbl">Encerradas</div><div class="kpi-val ok">${enc}</div><div class="kpi-sub">finalizadas</div></div>
-      <div class="kpi"><div class="kpi-lbl">Em andamento</div><div class="kpi-val" style="color:var(--ink2)">${rows.length-enc}</div><div class="kpi-sub">abertas</div></div>
+      ${isRdr?`<div class="kpi kpi-wide"><div class="kpi-lbl">Tipo mais frequente</div><div class="kpi-val" style="font-size:18px;color:var(--ink)">${rdrTop?rdrTop[0]+' · '+Math.round(100*rdrTop[1]/rdrTot)+'%':'—'}</div><div class="kpi-sub">${rdrSem?rdrSem+' sem classificação':'todas classificadas'}</div></div>`:`<div class="kpi"><div class="kpi-lbl">Encerradas</div><div class="kpi-val ok">${enc}</div><div class="kpi-sub">finalizadas</div></div>
+      <div class="kpi"><div class="kpi-lbl">Em andamento</div><div class="kpi-val" style="color:var(--ink2)">${rows.length-enc}</div><div class="kpi-sub">abertas</div></div>`}
     </div>
     ${canal==='consumidor'?buildScoreConsumidor():''}
     <div class="cg2">
-      <div class="card"><div class="card-t">Demandas por tipo</div><div style="position:relative;height:${ch}px"><canvas id="ch-dem-${canal}"></canvas></div></div>
-      <div class="card"><div class="card-t">Status das entradas</div>${stH}</div>
+      <div class="card"${isRdr?' style="grid-column:1/-1"':''}><div class="card-t">Demandas por tipo${isRdr?` <span style="font-weight:400;color:var(--ink3)">${rdrTot?`· % sobre ${rdrTot} classificadas`:''}${rdrSem?` · ${rdrSem} sem classificação (fora do ranking)`:''}</span>`:''}</div>${isRdr&&!rdrTot?'<p style="font-size:11px;color:var(--ink3);padding:14px 0">Nenhuma demanda classificada neste dia ainda.</p>':`<div style="position:relative;height:${ch}px"><canvas id="ch-dem-${canal}"></canvas></div>`}</div>
+      ${isRdr?'':`<div class="card"><div class="card-t">Status das entradas</div>${stH}</div>`}
     </div>
-    <div class="cg3">
-      <div class="card"><div class="card-t">Recebimentos por data</div><div style="position:relative;height:120px"><canvas id="ch-dat-${canal}"></canvas></div></div>
-      <div class="card"><div class="card-t">${isRdr?'Status':'Tipo produto'}</div><div style="position:relative;height:120px"><canvas id="ch-st-${canal}"></canvas></div></div>
+    <div class="cg3"${isRdr?' style="grid-template-columns:1fr"':''}>
+      <div class="card"><div class="card-t">${isRdr?'Demandas recebidas por dia no mês <span style="font-weight:400;color:var(--ink3)">· dia selecionado em destaque</span>':'Recebimentos por data'}</div><div style="position:relative;height:${isRdr?160:120}px"><canvas id="ch-dat-${canal}"></canvas></div></div>
+      ${isRdr?'':`<div class="card"><div class="card-t">Tipo produto</div><div style="position:relative;height:120px"><canvas id="ch-st-${canal}"></canvas></div></div>`}
     </div>
     <div class="card"><div class="card-t">${c.nome} · ${rows.length} registros</div>${tableH}</div>
   `;
@@ -1260,18 +1274,36 @@ function drawCanalCharts(canal,rows){
   const cor=cfg[canal];
 
   // Barras horizontal — demandas
+  if(canal==='rdr'){
+    const t=rdrTipos(rows);
+    drawChart('ch-dem-rdr','bar',{labels:t.lista.map(([n,q])=>`${n} · ${Math.round(100*q/t.total)}%`),datasets:[{data:t.lista.map(([n,q])=>q),backgroundColor:CORES,borderRadius:3}]},
+      {indexAxis:'y',plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>`${c.raw} demanda(s) · ${(100*c.raw/t.total).toFixed(1)}%`}}},scales:{x:{grid:{display:false},ticks:{font:{size:9},stepSize:1}},y:{grid:{display:false},ticks:{font:{size:10}}}}});
+  } else {
   const lblD=Object.keys(demC).sort((a,b)=>demC[b]-demC[a]);
   drawChart('ch-dem-'+canal,'bar',{labels:lblD,datasets:[{data:lblD.map(l=>demC[l]),backgroundColor:CORES,borderRadius:3}]},
     {indexAxis:'y',plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:9},stepSize:1}},y:{grid:{display:false},ticks:{font:{size:9}}}}});
+  }
 
+  // RDR: barras por dia do mes (volume), dia selecionado em destaque
+  if(canal==='rdr'&&diaSel){
+    const [yy,mm]=diaSel.split('-').map(Number),nd=new Date(yy,mm,0).getDate();
+    const dias=[],vals=[],cores=[];
+    for(let d=1;d<=nd;d++){
+      const k=`${yy}-${String(mm).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      dias.push(String(d));vals.push(((dadosPorDia[k]||{}).rdr||[]).length);cores.push(k===diaSel?cor:cor+'55');
+    }
+    drawChart('ch-dat-rdr','bar',{labels:dias,datasets:[{data:vals,backgroundColor:cores,borderRadius:3}]},
+      {plugins:{legend:{display:false},tooltip:{callbacks:{title:i=>`Dia ${i[0].label}/${String(mm).padStart(2,'0')}`,label:c=>`${c.raw} demanda(s)`}}},scales:{x:{grid:{display:false},ticks:{font:{size:9}}},y:{beginAtZero:true,grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},precision:0}}}});
+  } else {
   // Linha — datas
   const lblDt=Object.keys(dtC).sort((a,b)=>{const[da,ma]=a.split('/').map(Number),[db,mb]=b.split('/').map(Number);return ma-mb||da-db;});
   drawChart('ch-dat-'+canal,'line',{labels:lblDt,datasets:[{data:lblDt.map(l=>dtC[l]),borderColor:cor,backgroundColor:cor+'1a',fill:true,tension:.4,pointRadius:3,pointBackgroundColor:cor}]},
     {plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{font:{size:8},maxRotation:45}},y:{grid:{color:'rgba(0,0,0,.04)'},ticks:{font:{size:9},stepSize:1}}}});
+  }
 
-  // Donut — status
+  // Donut — tipo produto (RDR nao usa: status nao vem da planilha)
   const lblS=Object.keys(stC);
-  drawChart('ch-st-'+canal,'doughnut',{labels:lblS,datasets:[{data:lblS.map(l=>stC[l]),backgroundColor:CORES,borderWidth:0,hoverOffset:4}]},
+  if(canal!=='rdr')drawChart('ch-st-'+canal,'doughnut',{labels:lblS,datasets:[{data:lblS.map(l=>stC[l]),backgroundColor:CORES,borderWidth:0,hoverOffset:4}]},
     {cutout:'55%',plugins:{legend:{display:true,position:'right',labels:{font:{size:8},boxWidth:7,padding:4}}}});
 }
 
